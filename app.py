@@ -58,26 +58,90 @@ REFRESH_TOKEN_STORE = {}           # key: selling_partner_id -> refresh_token (e
 # Basic HTML templates (kept inline for example)
 INDEX_HTML = """
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <title>SP-API Website Authorization Example</title>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body>
-    <h1>Authorize Example App</h1>
-    <p>Click the button to start authorization.</p>
-    <form method="get" action="{{ authorize_url }}">
-      <button type="submit">Authorize with Seller Central</button>
-    </form>
-    <hr>
-    <p>Test endpoints:</p>
-    <ul>
-      <li><a href="/login">/login (log-in URI)</a> - typically called by Amazon</li>
-      <li><a href="/sp-api/auth">/sp-api/auth (redirect URI)</a> - will be called by Amazon after consent</li>
-    </ul>
+  <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="bg-white shadow-xl rounded-2xl p-10 max-w-md w-full text-center">
+      <h1 class="text-3xl font-extrabold mb-6">Authorize Example App</h1>
+      <p class="mb-6 text-gray-600">Click the button to start authorization with Seller Central.</p>
+      <form method="get" action="{{ authorize_url }}">
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-full shadow-md transition">
+          Authorize with Seller Central
+        </button>
+      </form>
+
+      <div class="my-6">
+        <a href="/support">
+          <button class="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-full shadow-md transition mt-4">
+            Support / Callback
+          </button>
+        </a>
+      </div>
+
+      <hr class="my-6 border-gray-300">
+      <p class="text-gray-500 mb-2 font-semibold">Test endpoints:</p>
+      <ul class="text-left text-blue-600 underline space-y-1">
+        <li><a href="/login">/login (log-in URI)</a></li>
+        <li><a href="/sp-api/auth">/sp-api/auth (redirect URI)</a></li>
+      </ul>
+    </div>
   </body>
 </html>
 """
+
+SUPPORT_HTML = """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Support & Callback</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="bg-white shadow-xl rounded-2xl p-10 max-w-md w-full">
+      <h1 class="text-3xl font-extrabold mb-6 text-center">Support Request</h1>
+      <form method="post" action="/support" class="space-y-4">
+        <div>
+          <label class="block text-gray-700 font-medium" for="name">Your Name:</label>
+          <input class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" type="text" id="name" name="name" required>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-medium" for="number">Callback Number:</label>
+          <input class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" type="tel" id="number" name="number" pattern="[0-9]{10}" required>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-medium" for="message">Message (optional):</label>
+          <textarea class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" id="message" name="message" rows="4"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-full shadow-md transition">
+          Submit
+        </button>
+      </form>
+
+      <div class="my-6 text-center">
+        <p class="text-gray-600 font-medium mb-2">Need Immediate Help?</p>
+        <a href="tel:+918920518735">
+          <button class="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-full shadow-md transition">
+            Call Now
+          </button>
+        </a>
+      </div>
+
+      <p class="text-center text-gray-500 mt-4">
+        <a href="/" class="underline hover:text-blue-600">← Back to Home</a>
+      </p>
+    </div>
+  </body>
+</html>
+"""
+
 
 # Ensure Amazon-required header to prevent CSRF via referrer
 @app.after_request
@@ -115,6 +179,24 @@ def index():
     }
     authorize_url = build_authorization_uri(state=our_state, version_beta=False)
     return render_template_string(INDEX_HTML, authorize_url=authorize_url)
+
+@app.route('/support', methods=['GET', 'POST'])
+def support():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        number = request.form.get('number')
+        message = request.form.get('message')
+
+        # ⚠️ In production: store in DB, send email, or trigger notification
+        app.logger.info(f"Support request: {name}, {number}, {message}")
+
+        return f"""
+        <h2>Thanks {name}!</h2>
+        <p>We have received your request. We will call you at <strong>{number}</strong> soon.</p>
+        <p><a href="/">Back to Home</a></p>
+        """
+
+    return render_template_string(SUPPORT_HTML)
 
 
 @app.route('/login')
