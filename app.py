@@ -68,11 +68,16 @@ INDEX_HTML = """
     <div class="bg-white shadow-xl rounded-2xl p-10 max-w-md w-full text-center">
       <h1 class="text-3xl font-extrabold mb-6">Authorize Example App</h1>
       <p class="mb-6 text-gray-600">Click the button to start authorization with Seller Central.</p>
-      <form method="get" action="{{ authorize_url }}">
-        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-full shadow-md transition">
-          Authorize with Seller Central
-        </button>
-      </form>
+<form method="get" action="https://sellercentral.amazon.in/apps/authorize/consent">
+  <input type="hidden" name="application_id" value="{{ APPLICATION_ID }}">
+  <input type="hidden" name="state" value="{{ state }}">
+  <input type="hidden" name="version" value="beta">
+  <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-full shadow-md transition">
+    Authorize with Seller Central
+  </button>
+</form>
+
+
 
       <div class="my-6">
         <a href="/support">
@@ -169,16 +174,21 @@ def build_authorization_uri(region_base=None, version_beta=False, state=None):
     return f"{base}{path}?{urllib.parse.urlencode(params)}"
 
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    # Build a fresh state for this button click; store it so we can validate later.
     our_state = generate_state()
     OUTBOUND_STATE_STORE[our_state] = {
         'timestamp': time.time(),
         'note': 'state created from landing page button'
     }
-    authorize_url = build_authorization_uri(state=our_state, version_beta=False)
-    return render_template_string(INDEX_HTML, authorize_url=authorize_url)
+    authorize_url = build_authorization_uri(state=our_state, version_beta=True)
+
+    return render_template_string(
+        INDEX_HTML,
+        APPLICATION_ID=APPLICATION_ID,
+        state=our_state,   # send state explicitly
+        authorize_url=authorize_url
+    )
 
 @app.route('/support', methods=['GET', 'POST'])
 def support():
@@ -219,6 +229,7 @@ def login_endpoint():
 
     # Basic parameter validation
     if not amazon_callback_uri or not amazon_state or not selling_partner_id:
+        print("error in login path in amazon callback uri failed to fetch ")
         return "Missing required parameters in login uri", 400
 
     # In a real app: authenticate the user or map selling_partner_id <-> local account.
@@ -263,6 +274,7 @@ def redirect_uri_handler():
     spapi_oauth_code = request.args.get('spapi_oauth_code')
 
     if not state or not selling_partner_id or not spapi_oauth_code:
+        print("Missing required parameters in sp-api/auth")
         return "Missing required parameters in sp-api/auth", 400
 
     # Validate state - ensure it exists in our outbound state store
